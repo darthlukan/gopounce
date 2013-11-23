@@ -12,4 +12,6 @@ expect it to work outside of the most simple of cases and your mileage may vary.
 
 ## License
 
-> Do what you want with it :)
+> The Unlicense, see the included LICENSE file.
+
+> Basically, do what you want with it :)
