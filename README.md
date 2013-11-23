@@ -10,6 +10,15 @@ expect it to work outside of the most simple of cases and your mileage may vary.
 > GoPounce was written using Liteide on go1.2rc5 on Linux.
 
 
+## Usage
+
+    $ gopounce http://www.google.com /tmp/google.html
+
+    OR
+
+    $ gopounce -url http://www.google.com -filename /tmp/google.html
+
+
 ## License
 
 > The Unlicense, see the included LICENSE file.
