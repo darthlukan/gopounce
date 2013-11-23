@@ -4,6 +4,7 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/guelfey/go.dbus"
 	"io"
 	"net/http"
 	"os"
@@ -58,10 +59,31 @@ func save(file io.Writer, resp *http.Response) int64 {
 	return complete
 }
 
+// notify takes a message string and channel as an
+// argument and displays a dbus notification.
+func notify(msg string, done chan<- bool) {
+
+	conn, err := dbus.SessionBus()
+
+	if err != nil {
+		panic(err)
+	}
+
+	obj := conn.Object("org.freedesktop.Notifications", "/org/freedesktop/Notifications")
+	call := obj.Call("org.freedesktop.Notifications.Notify", 0, "", uint32(0),
+		"", "GoPounce", msg, []string{}, map[string]dbus.Variant{}, int32(5000))
+
+	if call.Err != nil {
+		panic(call.Err)
+	}
+	done <- true
+}
+
 func main() {
 
 	var url string
 	var filename string
+	done := make(chan bool)
 
 	flag.StringVar(&url, "url", "", "URL to get")
 	flag.StringVar(&filename, "filename", "", "Destination file to write.")
@@ -85,5 +107,9 @@ func main() {
 	complete := save(file, resp)
 	end := time.Now()
 	size := complete / 1024
-	fmt.Printf("Downloaded ~%v kb in %v \n", size, end.Sub(start))
+	msg := fmt.Sprintf("Downloaded ~%v kb in %v \n", size, end.Sub(start))
+	go notify(msg, done)
+	fmt.Printf(msg)
+
+	<-done
 }
