@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -42,6 +43,27 @@ func create(filename string) *os.File {
 	fmt.Printf("%v created!\n", filename)
 
 	return file
+}
+
+func readFile(infilename string) {
+
+	file, err := os.Open(infilename)
+
+	if err != nil {
+		panic(err)
+	}
+
+	scanner := bufio.NewScanner(file)
+
+	for scanner.Scan() {
+		// TODO: From here we want to download the URL, but we want to spawn a downloader for each line
+		// without blocking.  Goroutines, but how? More thought needed.
+		line := scanner.Text()
+	}
+
+	if err := scanner.Err(); err != nil {
+		panic(err)
+	}
 }
 
 // save takes a file of type io.Writer and a response pointer
@@ -82,16 +104,24 @@ func notify(msg string, done chan<- bool) {
 func main() {
 
 	var url string
+	var infile string
 	var filename string
 	done := make(chan bool)
 
 	flag.StringVar(&url, "url", "", "URL to get")
+	flag.StringVar(&infile, "infile", "", "An input file with URLs on each line. Newline delimitted.")
 	flag.StringVar(&filename, "filename", "", "Destination file to write.")
 	flag.Parse()
 	flag.Args()
 
-	if url == "" {
-		url = flag.Arg(0)
+	// TODO: Redesign this as we don't want to have to check again if we have a URL to decide
+	// whether to immediately download(url) or if we want to run readFile(infile)
+	if url == "" || infile == "" {
+		if strings.Contains(flag.Arg(0), "http") || strings.Contains(flag.Arg(0), "www") {
+			url = flag.Arg(0)
+		} else {
+			infile := flag.Arg(0)
+		}
 	}
 
 	if filename == "" {
