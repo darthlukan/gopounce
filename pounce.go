@@ -72,7 +72,7 @@ func multiCreate(destination string, response *http.Response, createDone chan<- 
 	fmt.Printf("Writing file %v...\n", destination)
 	complete, err := io.Copy(file, response.Body)
 	defer response.Body.Close()
-	fmt.Println(complete)
+	fmt.Printf("Wrote %v bytes to file %v\n", complete, destination)
 
 	if err != nil {
 		panic(err)
@@ -157,6 +157,8 @@ func main() {
 
 	var input string
 	var output string
+	var msg string
+
 	done := make(chan bool)
 
 	flag.StringVar(&input, "url", "", "URL to get")
@@ -186,17 +188,14 @@ func main() {
 
 		end := time.Now()
 		size := complete / 1024
-		msg := fmt.Sprintf("Downloaded ~%v kb in %v \n", size, end.Sub(start))
-
-		go notify(msg, done)
-		fmt.Printf(msg)
-		<-done
+		msg = fmt.Sprintf("Downloaded ~%v kb in %v \n", size, end.Sub(start))
 	} else {
 		readFile(input, output)
 		end := time.Now()
-		msg := fmt.Sprintf("Downloaded contents of %v in %v\n", input, end.Sub(start))
-		go notify(msg, done)
-		fmt.Printf(msg)
-		<-done
+		msg = fmt.Sprintf("Downloaded contents of %v in %v\n", input, end.Sub(start))
 	}
+
+	go notify(msg, done)
+	fmt.Printf(msg)
+	<-done
 }
