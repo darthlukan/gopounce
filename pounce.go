@@ -2,6 +2,7 @@
 package main
 
 import (
+	"bufio"
 	"flag"
 	"fmt"
 	"github.com/guelfey/go.dbus"
@@ -22,7 +23,6 @@ func download(url string) *http.Response {
 	if err != nil {
 		panic(err)
 	}
-
 	fmt.Printf("Download complete!\n")
 
 	return resp
@@ -33,19 +33,54 @@ func download(url string) *http.Response {
 // os.Create(filename) and checks err.
 func create(filename string) *os.File {
 
-	fmt.Printf("Creating %v ...\n", filename)
 	file, err := os.Create(filename)
 
 	if err != nil {
 		panic(err)
 	}
 
-	fmt.Printf("%v created!\n", filename)
+	fmt.Printf("Created %v ...\n", filename)
 
 	return file
 }
 
-func readFile(infilename string) {
+func multiDownload(url, destination string, channel chan<- bool) {
+
+	fmt.Printf("Downloading...\n")
+	resp, err := http.Get(url)
+
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("Download complete!\n")
+
+	go multiCreate(destination, resp, channel)
+	channel <- true
+}
+
+func multiCreate(destination string, response *http.Response, channel chan<- bool) {
+
+	fmt.Printf("Creating %v ...\n", destination)
+	file, err := os.Create(destination)
+
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("Writing file %v...\n", destination)
+	complete, err := io.Copy(file, response.Body)
+	defer response.Body.Close()
+	defer file.Close()
+	fmt.Println(complete)
+
+	if err != nil {
+		panic(err)
+	}
+
+	channel <- true
+}
+
+func readFile(infilename, destination string) {
 
 	file, err := os.Open(infilename)
 
@@ -55,14 +90,30 @@ func readFile(infilename string) {
 
 	scanner := bufio.NewScanner(file)
 
+	lineCount := 0
+	channel := make(chan bool)
 	for scanner.Scan() {
-		// TODO: From here we want to download the URL, but we want to spawn a downloader for each line
-		// without blocking.  Goroutines, but how? More thought needed.
+		lineCount++
+
 		line := scanner.Text()
+		splitCount := strings.Count(line, "/")
+		endOfSplit := strings.SplitAfterN(line, "/", splitCount)
+		filename := string(endOfSplit[len(endOfSplit)-1])
+
+		if strings.Count(filename, "/") > 0 {
+			filename = string(strings.SplitAfterN(filename, "/", 2)[1])
+		}
+
+		toSave := fmt.Sprintf("%v%v", destination, filename)
+		go multiDownload(line, toSave, channel)
 	}
 
 	if err := scanner.Err(); err != nil {
 		panic(err)
+	}
+
+	for i := 0; i < lineCount; i++ {
+		<-channel
 	}
 }
 
@@ -103,43 +154,48 @@ func notify(msg string, done chan<- bool) {
 
 func main() {
 
-	var url string
-	var infile string
-	var filename string
+	var input string
+	var output string
 	done := make(chan bool)
 
-	flag.StringVar(&url, "url", "", "URL to get")
-	flag.StringVar(&infile, "infile", "", "An input file with URLs on each line. Newline delimitted.")
-	flag.StringVar(&filename, "filename", "", "Destination file to write.")
+	flag.StringVar(&input, "url", "", "URL to get")
+	flag.StringVar(&input, "infile", "", "An input file with URLs on each line that are newline delimitted.")
+	flag.StringVar(&output, "filename", "", "Destination file to write.")
+	flag.StringVar(&output, "directory", "", "Destination directory to write into with trailing '/' (only works with -infile flag)")
 	flag.Parse()
 	flag.Args()
 
-	// TODO: Redesign this as we don't want to have to check again if we have a URL to decide
-	// whether to immediately download(url) or if we want to run readFile(infile)
-	if url == "" || infile == "" {
-		if strings.Contains(flag.Arg(0), "http") || strings.Contains(flag.Arg(0), "www") {
-			url = flag.Arg(0)
-		} else {
-			infile := flag.Arg(0)
-		}
+	if input == "" {
+		input = flag.Arg(0)
 	}
 
-	if filename == "" {
-		filename = flag.Arg(1)
+	if output == "" {
+		output = flag.Arg(1)
 	}
+
 	start := time.Now()
-	resp := download(url)
-	defer resp.Body.Close()
 
-	file := create(filename)
-	defer file.Close()
+	// TODO: Refactor, this doesn't conform to DRY.
+	if strings.Contains(input, "http") || strings.Contains(input, "www") {
+		resp := download(input)
+		defer resp.Body.Close()
+		file := create(output)
+		defer file.Close()
+		complete := save(file, resp)
 
-	complete := save(file, resp)
-	end := time.Now()
-	size := complete / 1024
-	msg := fmt.Sprintf("Downloaded ~%v kb in %v \n", size, end.Sub(start))
-	go notify(msg, done)
-	fmt.Printf(msg)
+		end := time.Now()
+		size := complete / 1024
+		msg := fmt.Sprintf("Downloaded ~%v kb in %v \n", size, end.Sub(start))
 
-	<-done
+		go notify(msg, done)
+		fmt.Printf(msg)
+		<-done
+	} else {
+		readFile(input, output)
+		end := time.Now()
+		msg := fmt.Sprintf("Downloaded contents of %v in %v\n", input, end.Sub(start))
+		go notify(msg, done)
+		fmt.Printf(msg)
+		<-done
+	}
 }
