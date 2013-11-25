@@ -48,20 +48,22 @@ func multiDownload(url, destination string, channel chan<- bool) {
 
 	fmt.Printf("Downloading...\n")
 	resp, err := http.Get(url)
+	createDone := make(chan bool)
+	go multiCreate(destination, resp, createDone)
 
 	if err != nil {
 		panic(err)
 	}
 	fmt.Printf("Download complete!\n")
-
-	go multiCreate(destination, resp, channel)
+	<-createDone
 	channel <- true
 }
 
-func multiCreate(destination string, response *http.Response, channel chan<- bool) {
+func multiCreate(destination string, response *http.Response, createDone chan<- bool) {
 
 	fmt.Printf("Creating %v ...\n", destination)
 	file, err := os.Create(destination)
+	defer file.Close()
 
 	if err != nil {
 		panic(err)
@@ -70,14 +72,13 @@ func multiCreate(destination string, response *http.Response, channel chan<- boo
 	fmt.Printf("Writing file %v...\n", destination)
 	complete, err := io.Copy(file, response.Body)
 	defer response.Body.Close()
-	defer file.Close()
 	fmt.Println(complete)
 
 	if err != nil {
 		panic(err)
 	}
 
-	channel <- true
+	createDone <- true
 }
 
 func readFile(infilename, destination string) {
