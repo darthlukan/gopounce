@@ -55,8 +55,8 @@ func multiDownload(url, destination string, channel chan<- bool) {
 		panic(err)
 	}
 	fmt.Printf("Download complete!\n")
-	<-createDone
 	channel <- true
+	<-createDone
 }
 
 func multiCreate(destination string, response *http.Response, createDone chan<- bool) {
