@@ -24,3 +24,7 @@ expect it to work outside of the most simple of cases and your mileage may vary.
 > The Unlicense, see the included LICENSE file.
 
 > Basically, do what you want with it :)
+
+
+[![Bitdeli Badge](https://d2weczhvl823v0.cloudfront.net/darthlukan/gopounce/trend.png)](https://bitdeli.com/free "Bitdeli Badge")
+
