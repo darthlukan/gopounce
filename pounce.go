@@ -1,4 +1,30 @@
-// pounce.go
+/* pounce.go
+	Contains all of the functions necessary to download
+	a remote file given a URL and a location on disk to
+	save that file.  Can also take a text file containing
+	a URL on each line and save each file to a specified
+	directory on disk.  Downloading via file input uses
+	a very simplistic method of finding filenames, so
+	URLs should contain the filename and extension in the
+	URL.
+
+	Single File Example:
+		gopounce http://www.google.com/index.html /tmp/index.html
+	
+	File Input Example:
+		gopounce /path/to/file.txt /tmp
+	
+		<file.txt contents>
+			http://www.google.com/index.html
+			http://www.brianctomlinson.com/index.html
+		</>
+
+	NOTES:
+	1. This software has not been tested on platforms other than Linux.
+	2. The '.txt' extension on the input file is not a necessity.
+	3. Feel free to do whatever you'd like with this program, I wrote
+	it to help me learn Go, not to sell nor to solve some awesome problem. :)
+*/
 package main
 
 import (
@@ -75,7 +101,7 @@ func multiCreate(destination string, response *http.Response, createDone chan<- 
 	fmt.Printf("Wrote %v bytes to file %v\n", complete, destination)
 
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
 	}
 
 	createDone <- true
@@ -110,7 +136,7 @@ func readFile(infilename, destination string) {
 	}
 
 	if err := scanner.Err(); err != nil {
-		panic(err)
+		fmt.Println(err)
 	}
 
 	for i := 0; i < lineCount; i++ {
@@ -140,7 +166,7 @@ func notify(msg string, done chan<- bool) {
 	conn, err := dbus.SessionBus()
 
 	if err != nil {
-		panic(err)
+		fmt.Println(err)
 	}
 
 	obj := conn.Object("org.freedesktop.Notifications", "/org/freedesktop/Notifications")
@@ -148,7 +174,7 @@ func notify(msg string, done chan<- bool) {
 		"", "GoPounce", msg, []string{}, map[string]dbus.Variant{}, int32(5000))
 
 	if call.Err != nil {
-		panic(call.Err)
+		fmt.Println(call.Err)
 	}
 	done <- true
 }
