@@ -1,29 +1,29 @@
 /* pounce.go
-	Contains all of the functions necessary to download
-	a remote file given a URL and a location on disk to
-	save that file.  Can also take a text file containing
-	a URL on each line and save each file to a specified
-	directory on disk.  Downloading via file input uses
-	a very simplistic method of finding filenames, so
-	URLs should contain the filename and extension in the
-	URL.
+Contains all of the functions necessary to download
+a remote file given a URL and a location on disk to
+save that file.  Can also take a text file containing
+a URL on each line and save each file to a specified
+directory on disk.  Downloading via file input uses
+a very simplistic method of finding filenames, so
+URLs should contain the filename and extension in the
+URL.
 
-	Single File Example:
-		gopounce http://www.google.com/index.html /tmp/index.html
-	
-	File Input Example:
-		gopounce /path/to/file.txt /tmp
-	
-		<file.txt contents>
-			http://www.google.com/index.html
-			http://www.brianctomlinson.com/index.html
-		</>
+Single File Example:
+	gopounce http://www.google.com/index.html /tmp/index.html
 
-	NOTES:
-	1. This software has not been tested on platforms other than Linux.
-	2. The '.txt' extension on the input file is not a necessity.
-	3. Feel free to do whatever you'd like with this program, I wrote
-	it to help me learn Go, not to sell nor to solve some awesome problem. :)
+File Input Example:
+	gopounce /path/to/file.txt /tmp
+
+	<file.txt contents>
+		http://www.google.com/index.html
+		http://www.brianctomlinson.com/index.html
+	</>
+
+NOTES:
+1. This software has not been tested on platforms other than Linux.
+2. The '.txt' extension on the input file is not a necessity.
+3. Feel free to do whatever you'd like with this program, I wrote
+it to help me learn Go, not to sell nor to solve some awesome problem. :)
 */
 package main
 
