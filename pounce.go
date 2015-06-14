@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	transactions map[string]Transaction
+	transactions map[string]Transaction = make(map[string]Transaction)
 )
 
 type Transaction struct {
@@ -119,15 +119,16 @@ func main() {
 		},
 	}
 	app.Action = func(c *cli.Context) {
+		counter := 0
 		url := c.String("url")
 		inFile := c.String("file")
 		outFile := c.String("outfile")
 		outDir := c.String("dir")
 
-		if url == "" || inFile == "" {
+		if url == "" && inFile == "" {
 			fmt.Println(errors.New("Missing input arguments, please see 'pounce --help'\n"))
 			return
-		} else if outFile == "" || outDir == "" {
+		} else if outFile == "" && outDir == "" {
 			fmt.Println(errors.New("Missing output arguments, please see 'pounce --help'\n"))
 			return
 		}
@@ -142,21 +143,24 @@ func main() {
 				transaction := Transaction{Url: url, Destination: outDir, Multi: true}
 				transactions[url] = transaction
 				go download(url, respChan)
+				counter += 1
 			}
 		}
 
 		if url != "" && outFile != "" {
+			transaction := Transaction{Url: url, Destination: outFile, Multi: false}
+			transactions[url] = transaction
 			go download(url, respChan)
+			counter += 1
 		}
 
-		for {
+		for counter > 0 {
 			select {
 			case r := <-respChan:
-				u, err := r.Location()
-				if err != nil {
-					fmt.Printf("Caught error: %v\n", err)
-				}
-				if transaction, ok := transactions[u.Path]; ok == true {
+				// TODO: Problem == this URL is not the same as our input, so we never match transactions
+				u := fmt.Sprintf("%v\n", r.Request.URL.String())
+				fmt.Printf("u: %v\n", u)
+				if transaction, ok := transactions[u]; ok == true {
 					defer r.Body.Close()
 					f := create(transaction.Destination)
 					defer f.Close()
@@ -165,7 +169,10 @@ func main() {
 					msg := fmt.Sprintf("Downloaded %vkb file '%v' in %v\n",
 						bytesWritten/1024, f.Name, endTime.Sub(startTime))
 					go notify(msg)
+				} else {
+					fmt.Printf("%v: %v.\n", "Problem processing transaction", transaction)
 				}
+				counter--
 			}
 		}
 
