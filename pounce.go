@@ -1,41 +1,27 @@
-/* pounce.go
-Contains all of the functions necessary to download
-a remote file given a URL and a location on disk to
-save that file.  Can also take a text file containing
-a URL on each line and save each file to a specified
-directory on disk.  Downloading via file input uses
-a very simplistic method of finding filenames, so
-URLs should contain the filename and extension in the
-URL.
-
-Single File Example:
-	gopounce http://www.google.com/index.html /tmp/index.html
-
-File Input Example:
-	gopounce /path/to/file.txt /tmp
-
-	<file.txt contents>
-		http://www.google.com/index.html
-		http://www.brianctomlinson.com/index.html
-	</>
-
-NOTES:
-1. This software has not been tested on platforms other than Linux.
-2. The '.txt' extension on the input file is not a necessity.
-3. Feel free to do whatever you'd like with this program, I wrote
-it to help me learn Go, not to sell nor to solve some awesome problem. :)
-*/
+// pounce.go
 package main
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"github.com/codegangsta/cli"
 	"github.com/guelfey/go.dbus"
 	"io"
 	"net/http"
 	"os"
+	"time"
 )
+
+var (
+	transactions map[string]Transaction
+)
+
+type Transaction struct {
+	Url         string
+	Destination string
+	Multi       bool
+}
 
 func notify(msg string) {
 	conn, err := dbus.SessionBus()
@@ -61,19 +47,6 @@ func download(url string, response chan<- *http.Response) {
 	response <- resp
 }
 
-func multiDownload(urls []string, destination string) {
-	resp := make(chan *http.Response)
-	for _, url := range urls {
-		go download(url, resp)
-	}
-	for {
-		select {
-		case r := <-resp:
-			defer r.Body.Close()
-		}
-	}
-}
-
 func readFile(filename string) []string {
 	var urls []string
 
@@ -94,6 +67,16 @@ func readFile(filename string) []string {
 	}
 
 	return urls
+}
+
+func create(filename string) *os.File {
+	file, err := os.Create(filename)
+	if err != nil {
+		fmt.Printf("Unable to create file!")
+		panic(err)
+	}
+
+	return file
 }
 
 func save(file io.Writer, resp *http.Response) int64 {
@@ -141,13 +124,51 @@ func main() {
 		outFile := c.String("outfile")
 		outDir := c.String("dir")
 
-		if url == "" && inFile == "" {
-			url = c.Args()[0]
+		if url == "" || inFile == "" {
+			fmt.Println(errors.New("Missing input arguments, please see 'pounce --help'\n"))
+			return
+		} else if outFile == "" || outDir == "" {
+			fmt.Println(errors.New("Missing output arguments, please see 'pounce --help'\n"))
+			return
 		}
 
-		if outFile == "" && outDir == "" {
-			outFile = fmt.Sprintf("%v/pounced.txt", os.Getenv("HOME"))
+		startTime := time.Now()
+
+		respChan := make(chan *http.Response)
+
+		if inFile != "" && outDir != "" {
+			urls := readFile(inFile)
+			for _, url := range urls {
+				transaction := Transaction{Url: url, Destination: outDir, Multi: true}
+				transactions[url] = transaction
+				go download(url, respChan)
+			}
 		}
+
+		if url != "" && outFile != "" {
+			go download(url, respChan)
+		}
+
+		for {
+			select {
+			case r := <-respChan:
+				u, err := r.Location()
+				if err != nil {
+					fmt.Printf("Caught error: %v\n", err)
+				}
+				if transaction, ok := transactions[u.Path]; ok == true {
+					defer r.Body.Close()
+					f := create(transaction.Destination)
+					defer f.Close()
+					bytesWritten := save(f, r)
+					endTime := time.Now()
+					msg := fmt.Sprintf("Downloaded %vkb file '%v' in %v\n",
+						bytesWritten/1024, f.Name, endTime.Sub(startTime))
+					go notify(msg)
+				}
+			}
+		}
+
 	}
 	app.Run(os.Args)
 }
