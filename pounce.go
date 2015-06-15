@@ -46,6 +46,8 @@ func nameGenerator(url, destination string) string {
 	} else {
 		name = urlSplit[len(urlSplit)-2]
 	}
+
+	destination = strings.Trim(destination, "/")
 	return fmt.Sprintf("%v/%v", destination, name)
 }
 
@@ -59,8 +61,11 @@ func download(url, output string, multi bool, response chan<- *http.Response) {
 	if err != nil {
 		fmt.Printf("Unable to get resource from '%v'. Error: %v\n", url, err)
 	}
-	transaction := Transaction{Url: resp.Request.URL.String(), Destination: output}
-	transactions[resp.Request.URL.String()] = transaction
+
+	go func() {
+		transaction := Transaction{Url: resp.Request.URL.String(), Destination: output}
+		transactions[resp.Request.URL.String()] = transaction
+	}()
 	response <- resp
 }
 
