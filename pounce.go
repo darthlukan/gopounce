@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -36,8 +37,23 @@ func notify(msg string) {
 	}
 }
 
-func download(url, output string, response chan<- *http.Response) {
+func nameGenerator(url, destination string) string {
+	var name string
+
+	urlSplit := strings.Split(url, "/")
+	if urlSplit[len(urlSplit)-1] != "" {
+		name = urlSplit[len(urlSplit)-1]
+	} else {
+		name = urlSplit[len(urlSplit)-2]
+	}
+	return fmt.Sprintf("%v/%v", destination, name)
+}
+
+func download(url, output string, multi bool, response chan<- *http.Response) {
 	fmt.Printf("Retreiving from %v\n", url)
+	if multi {
+		output = nameGenerator(url, output)
+	}
 	resp, err := http.Get(url)
 
 	if err != nil {
@@ -141,13 +157,13 @@ func main() {
 		if inFile != "" && outDir != "" {
 			urls := readFile(inFile)
 			for _, url := range urls {
-				go download(url, outDir, respChan)
+				go download(url, outDir, true, respChan)
 				counter += 1
 			}
 		}
 
 		if url != "" && outFile != "" {
-			go download(url, outFile, respChan)
+			go download(url, outFile, false, respChan)
 			counter += 1
 		}
 
