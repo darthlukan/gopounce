@@ -111,7 +111,7 @@ func save(file io.Writer, resp *http.Response) int64 {
 
 func main() {
 	app := cli.NewApp()
-	app.Name = "pounce"
+	app.Name = "gopounce"
 	app.Version = "0.0.2"
 	app.Usage = "A very simple file downloader in the vein of wget."
 	app.Authors = []cli.Author{cli.Author{
