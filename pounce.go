@@ -20,7 +20,6 @@ var (
 type Transaction struct {
 	Url         string
 	Destination string
-	Multi       bool
 }
 
 func notify(msg string) {
@@ -37,13 +36,15 @@ func notify(msg string) {
 	}
 }
 
-func download(url string, response chan<- *http.Response) {
+func download(url, output string, response chan<- *http.Response) {
 	fmt.Printf("Retreiving from %v\n", url)
 	resp, err := http.Get(url)
 
 	if err != nil {
 		fmt.Printf("Unable to get resource from '%v'. Error: %v\n", url, err)
 	}
+	transaction := Transaction{Url: resp.Request.URL.String(), Destination: output}
+	transactions[resp.Request.URL.String()] = transaction
 	response <- resp
 }
 
@@ -140,26 +141,20 @@ func main() {
 		if inFile != "" && outDir != "" {
 			urls := readFile(inFile)
 			for _, url := range urls {
-				transaction := Transaction{Url: url, Destination: outDir, Multi: true}
-				transactions[url] = transaction
-				go download(url, respChan)
+				go download(url, outDir, respChan)
 				counter += 1
 			}
 		}
 
 		if url != "" && outFile != "" {
-			transaction := Transaction{Url: url, Destination: outFile, Multi: false}
-			transactions[url] = transaction
-			go download(url, respChan)
+			go download(url, outFile, respChan)
 			counter += 1
 		}
 
 		for counter > 0 {
 			select {
 			case r := <-respChan:
-				// TODO: Problem == this URL is not the same as our input, so we never match transactions
-				u := fmt.Sprintf("%v\n", r.Request.URL.String())
-				fmt.Printf("u: %v\n", u)
+				u := fmt.Sprintf("%v", r.Request.URL.String())
 				if transaction, ok := transactions[u]; ok == true {
 					defer r.Body.Close()
 					f := create(transaction.Destination)
@@ -167,10 +162,11 @@ func main() {
 					bytesWritten := save(f, r)
 					endTime := time.Now()
 					msg := fmt.Sprintf("Downloaded %vkb file '%v' in %v\n",
-						bytesWritten/1024, f.Name, endTime.Sub(startTime))
+						bytesWritten/1024, f.Name(), endTime.Sub(startTime))
 					go notify(msg)
+					fmt.Printf(msg)
 				} else {
-					fmt.Printf("%v: %v.\n", "Problem processing transaction", transaction)
+					fmt.Printf("%v: %v.\n", "Problem processing transaction", r.Body)
 				}
 				counter--
 			}
